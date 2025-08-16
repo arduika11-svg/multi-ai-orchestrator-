@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+**/build/
+local.properties
+
+# Android Studio
+.idea/
+*.iml
+captures/
+
+# Misc
+*.keystore
+*.jks
+*.log
+*.zip

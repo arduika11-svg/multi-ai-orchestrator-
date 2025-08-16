@@ -1,0 +1,37 @@
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent">
+  <LinearLayout
+      android:orientation="vertical" android:padding="16dp"
+      android:layout_width="match_parent" android:layout_height="wrap_content">
+
+    <EditText
+        android:id="@+id/etPrompt"
+        android:hint="კითხე რამე..."
+        android:layout_width="match_parent" android:layout_height="wrap_content"/>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp">
+      <CheckBox android:id="@+id/tOpenAI" android:text="OpenAI" android:checked="true"/>
+      <CheckBox android:id="@+id/tGrok"   android:text="Grok"   android:layout_marginStart="12dp" android:checked="true"/>
+      <CheckBox android:id="@+id/tGemini" android:text="Gemini" android:layout_marginStart="12dp" android:checked="true"/>
+    </LinearLayout>
+
+    <LinearLayout
+        android:orientation="horizontal"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp">
+      <Button android:id="@+id/btnAskAll"     android:text="Ask All"/>
+      <Button android:id="@+id/btnAskOpenAI"  android:text="Ask OpenAI" android:layout_marginStart="8dp"/>
+      <Button android:id="@+id/btnAskGrok"    android:text="Ask Grok"   android:layout_marginStart="8dp"/>
+      <Button android:id="@+id/btnAskGemini"  android:text="Ask Gemini" android:layout_marginStart="8dp"/>
+    </LinearLayout>
+
+    <TextView android:id="@+id/status"     android:text="მზადაა"  android:layout_marginTop="12dp"/>
+    <TextView android:id="@+id/rawOpenAI"  android:text="OpenAI: —" android:layout_marginTop="6dp"/>
+    <TextView android:id="@+id/rawGrok"    android:text="Grok: —"   android:layout_marginTop="6dp"/>
+    <TextView android:id="@+id/rawGemini"  android:text="Gemini: —" android:layout_marginTop="6dp"/>
+    <TextView android:id="@+id/unified"    android:text="მოლოდინი…" android:layout_marginTop="10dp"/>
+  </LinearLayout>
+</ScrollView>
