@@ -1,11 +1,14 @@
 package com.orchestrator.starter
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import okhttp3.*
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONObject
-import java.io.IOException
 
 class MainActivity : AppCompatActivity() {
 
@@ -13,6 +16,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tOpenAI: CheckBox
     private lateinit var tGrok: CheckBox
     private lateinit var tGemini: CheckBox
+    private lateinit var switchCoop: Switch
+    private lateinit var etRounds: EditText
     private lateinit var btnAskAll: Button
     private lateinit var btnAskOpenAI: Button
     private lateinit var btnAskGrok: Button
@@ -24,8 +29,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var unified: TextView
 
     private val http = OkHttpClient()
-    // შეცვალე შენი Worker-ის გზით:
-    private val endpoint = "https://example.workers.dev/ask"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,6 +38,8 @@ class MainActivity : AppCompatActivity() {
         tOpenAI = findViewById(R.id.tOpenAI)
         tGrok = findViewById(R.id.tGrok)
         tGemini = findViewById(R.id.tGemini)
+        switchCoop = findViewById(R.id.switchCoop)
+        etRounds = findViewById(R.id.etRounds)
         btnAskAll = findViewById(R.id.btnAskAll)
         btnAskOpenAI = findViewById(R.id.btnAskOpenAI)
         btnAskGrok = findViewById(R.id.btnAskGrok)
@@ -44,6 +49,12 @@ class MainActivity : AppCompatActivity() {
         rawGrok = findViewById(R.id.rawGrok)
         rawGemini = findViewById(R.id.rawGemini)
         unified = findViewById(R.id.unified)
+
+        // მალსახმობი: status-ზე გრძელი დაჭერა გახსნის Connections-ს
+        status.setOnLongClickListener {
+            startActivity(Intent(this, ConnectionsActivity::class.java))
+            true
+        }
 
         btnAskAll.setOnClickListener { ask(listOf("OpenAI","Grok","Gemini")) }
         btnAskOpenAI.setOnClickListener { ask(listOf("OpenAI")) }
@@ -61,6 +72,13 @@ class MainActivity : AppCompatActivity() {
         val prompt = etPrompt.text.toString().trim()
         if (prompt.isEmpty()) { toast("ჩაწერე კითხვაც :)"); return }
 
+        val sp = getSharedPreferences("conn", MODE_PRIVATE)
+        val endpoint = sp.getString("worker", "https://example.workers.dev") ?: "https://example.workers.dev"
+
+        val coop = switchCoop.isChecked
+        val roundsText = etRounds.text.toString().trim()
+        val rounds = if (roundsText.isEmpty()) 1 else (roundsText.toIntOrNull() ?: 1)
+
         status.text = "იგზავნება..."
         rawOpenAI.text = "OpenAI: —"
         rawGrok.text   = "Grok: —"
@@ -70,49 +88,43 @@ class MainActivity : AppCompatActivity() {
         val bodyJson = JSONObject().apply {
             put("prompt", prompt)
             put("providers", active)
+            put("coop", coop)
+            put("rounds", rounds)
         }
 
-        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val media = "application/json; charset=utf-8".toMediaType()
         val req = Request.Builder()
-            .url(endpoint)
-            .post(RequestBody.create(mediaType, bodyJson.toString()))
+            .url("${endpoint.removeSuffix("/")}/ask")
+            .post(bodyJson.toString().toRequestBody(media))
             .build()
 
-        http.newCall(req).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
+        http.newCall(req).enqueue(object : okhttp3.Callback {
+            override fun onFailure(call: okhttp3.Call, e: java.io.IOException) {
                 runOnUiThread {
                     status.text = "შეცდომა: ${e.message}"
                     toast("ვერ გაიგზავნა")
                 }
             }
 
-            override fun onResponse(call: Call, resp: Response) {
+            override fun onResponse(call: okhttp3.Call, resp: okhttp3.Response) {
                 resp.use {
-                    if (!it.isSuccessful) {
-                        runOnUiThread {
-                            status.text = "HTTP ${it.code()}"
-                            toast("სერვერის შეცდომა")
-                        }
-                        return
-                    }
-                    val txt = it.body()?.string().orEmpty()
-
+                    val txt = it.body?.string().orEmpty()  // body() -> body
                     runOnUiThread {
+                        if (!it.isSuccessful) {
+                            status.text = "HTTP ${it.code}"     // code() -> code
+                            toast("სერვერის შეცდომა")
+                            unified.text = txt
+                            return@runOnUiThread
+                        }
                         status.text = "მზადაა"
-
                         val r = try { JSONObject(txt) } catch (_: Exception) { null }
                         if (r == null) {
                             unified.text = txt
                         } else {
-                            val openai = r.opt("openai")?.toString() ?: "—"
-                            val grok   = r.opt("grok")?.toString()   ?: "—"
-                            val gemini = r.opt("gemini")?.toString() ?: "—"
-                            val uni    = r.opt("unified")?.toString() ?: txt
-
-                            rawOpenAI.text = "OpenAI: $openai"
-                            rawGrok.text   = "Grok: $grok"
-                            rawGemini.text = "Gemini: $gemini"
-                            unified.text   = uni
+                            rawOpenAI.text = "OpenAI: " + (r.opt("openai")?.toString() ?: "—")
+                            rawGrok.text   = "Grok: "   + (r.opt("grok")?.toString()   ?: "—")
+                            rawGemini.text = "Gemini: " + (r.opt("gemini")?.toString() ?: "—")
+                            unified.text   = r.opt("unified")?.toString() ?: "—"
                         }
                     }
                 }
@@ -120,8 +132,5 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun toast(s:String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
+    private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()
 }
-
-// extension for MediaType
-private fun String.toMediaType(): MediaType = MediaType.parse(this)!!
